@@ -1424,7 +1424,14 @@ export class Wallet implements IClientWallet {
 			tx.gas = Math.min(await this.blockGasLimit(), Math.round(tx.gas * 1.5));
 		}
 		if (!tx.gasPrice) {
-			tx.gasPrice = new BigNumber((await this._ethersProvider.getFeeData()).gasPrice);
+			const feeData = await this._ethersProvider.getFeeData();
+			// Add 20% buffer to gas price to handle price fluctuations on EIP-1559 chains
+			const baseGasPrice = feeData.gasPrice || feeData.maxFeePerGas;
+			if (baseGasPrice) {
+				const bufferedGasPrice = BigInt(baseGasPrice) * BigInt(120) / BigInt(100);
+				tx.gasPrice = new BigNumber(bufferedGasPrice.toString());
+				console.log(`[eth-wallet] Gas price with 20% buffer: ${tx.gasPrice.toFixed()} (base: ${baseGasPrice.toString()})`);
+			}
 		}
 		if (!tx.nonce) {
 			tx.nonce = await this.transactionCount();
