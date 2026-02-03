@@ -7397,13 +7397,19 @@ var _Wallet = class {
       }
     } catch (e) {
       console.error("Error sending transaction:", methodName);
+      console.error("[eth-wallet] Full error details:", e);
       const errorInfo = this.extractEthersErrorInfo(e.message);
       let error = e;
       if (errorInfo) {
-        error = new Error(errorInfo.message);
+        console.error("[eth-wallet] Extracted error info:", errorInfo);
+        const errorMessage = errorInfo.message || errorInfo.reason || e.message;
+        if (errorMessage && errorMessage !== e.message) {
+          error = new Error(errorMessage);
+        }
       }
       if (this._sendTxEventHandler.transactionHash)
         this._sendTxEventHandler.transactionHash(error);
+      throw error;
     }
     return receipt;
   }
@@ -7467,9 +7473,17 @@ var _Wallet = class {
             resolve(new import_bignumber3.BigNumber(json.result).div(10 ** decimals));
           }
         } else {
+          console.warn(`[eth-wallet] Network not found in networksMap for chainId: ${self.chainId}. Available chainIds:`, Object.keys(self._networksMap));
+          console.warn(`[eth-wallet] Falling back to BrowserProvider with provider:`, typeof self._provider, self._provider);
           await self.init();
           const ethers = EthersLib2.ethers;
-          const ethersProvider = new ethers.BrowserProvider(self._provider);
+          let ethersProvider;
+          if (typeof self._provider === "string") {
+            console.warn(`[eth-wallet] _provider is a string URL, using JsonRpcProvider instead of BrowserProvider`);
+            ethersProvider = new ethers.JsonRpcProvider(self._provider);
+          } else {
+            ethersProvider = new ethers.BrowserProvider(self._provider);
+          }
           const balance = await ethersProvider.getBalance(address);
           const balanceInEther = ethers.formatEther(balance);
           resolve(new import_bignumber3.BigNumber(balanceInEther));

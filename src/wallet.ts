@@ -1521,13 +1521,21 @@ export class Wallet implements IClientWallet {
 		}
 		catch (e) {
 			console.error("Error sending transaction:", methodName);
+			console.error("[eth-wallet] Full error details:", e);
 			const errorInfo = this.extractEthersErrorInfo(e.message);
 			let error: Error = e;
 			if (errorInfo) {
-				error = new Error(errorInfo.message);
+				console.error("[eth-wallet] Extracted error info:", errorInfo);
+				// Use reason if message is null, fallback to original error message
+				const errorMessage = errorInfo.message || errorInfo.reason || e.message;
+				if (errorMessage && errorMessage !== e.message) {
+					error = new Error(errorMessage);
+				}
 			}
 			if (this._sendTxEventHandler.transactionHash)
 				this._sendTxEventHandler.transactionHash(error);
+			// Re-throw the error instead of returning undefined
+			throw error;
 		}
 		return receipt;
 	}
@@ -1821,9 +1829,19 @@ export class Wallet implements IClientWallet {
 					}
 				}
 				else {
+					console.warn(`[eth-wallet] Network not found in networksMap for chainId: ${self.chainId}. Available chainIds:`, Object.keys(self._networksMap));
+					console.warn(`[eth-wallet] Falling back to BrowserProvider with provider:`, typeof self._provider, self._provider);
 					await self.init();
 					const ethers = EthersLib.ethers;
-					const ethersProvider = new ethers.BrowserProvider(self._provider);
+					// BrowserProvider expects an EIP-1193 provider object, not a URL string
+					// If _provider is a string (RPC URL), use JsonRpcProvider instead
+					let ethersProvider;
+					if (typeof self._provider === 'string') {
+						console.warn(`[eth-wallet] _provider is a string URL, using JsonRpcProvider instead of BrowserProvider`);
+						ethersProvider = new ethers.JsonRpcProvider(self._provider);
+					} else {
+						ethersProvider = new ethers.BrowserProvider(self._provider);
+					}
 					const balance = await ethersProvider.getBalance(address);
 					const balanceInEther = ethers.formatEther(balance);
 					resolve(new BigNumber(balanceInEther));
