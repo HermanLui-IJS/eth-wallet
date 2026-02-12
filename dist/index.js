@@ -7131,7 +7131,8 @@ var _Wallet = class {
       const eventInputsAbi = inputs.map((input) => ({
         name: input.name || "",
         type: input.type,
-        indexed: !!input.indexed
+        indexed: !!input.indexed,
+        components: input.components
       }));
       const ethers = EthersLib2.ethers;
       const iface = new ethers.Interface([{

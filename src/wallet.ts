@@ -1212,6 +1212,7 @@ export class Wallet implements IClientWallet {
 				name: input.name || '',
 				type: input.type,
 				indexed: !!input.indexed,
+				components: input.components,
 			}));
 
 			const ethers = EthersLib.ethers;
